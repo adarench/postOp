@@ -1,0 +1,37 @@
+{
+  "name": "post-op-radar-functions",
+  "version": "0.1.0",
+  "description": "Firebase Functions for Post-Op Radar MVP",
+  "scripts": {
+    "build": "tsc",
+    "dev": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "firebase-admin": "^12.2.0",
+    "firebase-functions": "^5.0.1",
+    "twilio": "^5.2.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "@google-cloud/speech": "^6.6.0",
+    "csv-parser": "^3.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "@types/node": "^20.14.12",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node-cron": "^3.0.11",
+    "firebase-functions-test": "^3.1.1"
+  },
+  "private": true
+}

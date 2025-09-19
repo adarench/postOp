@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow all operations for MVP - Firebase Functions use Admin SDK which bypasses these rules anyway
+    // In production, implement proper authentication with custom claims
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
