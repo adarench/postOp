@@ -7,6 +7,9 @@ import { patientAPI } from './api/patients';
 import { triageAPI } from './api/triage';
 import { exportAPI } from './api/export';
 import { adminAPI } from './api/admin';
+import { conversationsAPI } from './api/conversations';
+import { addTestPatient } from './admin-add-patient';
+import { sendTestCheckin } from './admin-send-checkin';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -14,6 +17,10 @@ admin.initializeApp();
 // Webhook handlers
 export const twilioSMSWebhook = functions.https.onRequest(twilioWebhook);
 export const twilioStatusCallback = functions.https.onRequest(statusHandler);
+
+// Admin functions
+export const addPatientAdmin = functions.https.onRequest(addTestPatient);
+export const sendCheckinAdmin = functions.https.onRequest(sendTestCheckin);
 
 // Scheduled functions
 export const sendDailyCheckIns = functions.pubsub
@@ -43,6 +50,8 @@ export const api = functions.https.onRequest(async (req, res) => {
       await patientAPI(req, res);
     } else if (path.startsWith('/triage')) {
       await triageAPI(req, res);
+    } else if (path.startsWith('/conversations')) {
+      await conversationsAPI(req, res);
     } else if (path.startsWith('/export')) {
       await exportAPI(req, res);
     } else {

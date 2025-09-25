@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   XMarkIcon,
@@ -8,9 +8,10 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
-  PlayIcon
+  PlayIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
-import { PatientSummary, StaffAction } from '@/types';
+import { PatientSummary, StaffAction, Message } from '@/types';
 import { formatDistanceToNow, format } from 'date-fns';
 import TemplateSelector from './TemplateSelector';
 
@@ -29,6 +30,86 @@ export default function PatientReviewDrawer({
   const [showTemplates, setShowTemplates] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [note, setNote] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Fetch conversation history when drawer opens
+  useEffect(() => {
+    const fetchMessages = async () => {
+      setLoadingMessages(true);
+      try {
+        const response = await fetch(`/api/conversations/patient/${patient.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Flatten all messages from all conversations and sort by timestamp
+          const allMessages = Object.values(data.conversations).flat() as Message[];
+          allMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          setMessages(allMessages);
+        }
+      } catch (error) {
+        console.error('Failed to fetch messages:', error);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [patient.id]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || sendingMessage) return;
+
+    setSendingMessage(true);
+    try {
+      // Find the active conversation or use the most recent one
+      const activeConversation = messages.length > 0 ? messages[messages.length - 1].conversation_id : null;
+
+      if (!activeConversation) {
+        console.error('No conversation found to send message to');
+        return;
+      }
+
+      const response = await fetch(`/api/conversations/${activeConversation}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: newMessage,
+          staff_user_id: 'staff-user-1' // TODO: Get from auth context
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Add the new message to the local state
+        const newMsg: Message = {
+          id: result.message_id,
+          conversation_id: activeConversation,
+          patient_id: patient.id,
+          direction: 'outbound',
+          content: newMessage,
+          message_sid: result.sms_sid,
+          timestamp: new Date().toISOString(),
+          message_type: 'staff_reply',
+          metadata: {
+            staff_user_id: 'staff-user-1'
+          },
+          processed: true
+        };
+
+        setMessages(prev => [...prev, newMsg]);
+        setNewMessage('');
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   const handleAction = async (action: string, payload: any = {}) => {
     setIsLoading(true);
@@ -237,17 +318,91 @@ export default function PatientReviewDrawer({
                         />
                       </div>
 
-                      {/* Timeline/History placeholder */}
-                      <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                        <h3 className="text-sm font-medium text-gray-900 mb-3">Recent History</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-start space-x-3">
-                            <ClockIcon className="h-4 w-4 text-gray-400 mt-0.5" />
-                            <div className="text-sm">
-                              <p className="text-gray-900">Daily check-in sent</p>
-                              <p className="text-gray-500">2 hours ago</p>
+                      {/* Conversation Thread */}
+                      <div className="border-t border-gray-200 flex-1 flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                          <h3 className="text-sm font-medium text-gray-900">SMS Conversation</h3>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 px-6 py-4 space-y-4 max-h-80 overflow-y-auto">
+                          {loadingMessages ? (
+                            <div className="text-center py-8">
+                              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                              <p className="text-sm text-gray-500 mt-2">Loading conversation...</p>
                             </div>
+                          ) : messages.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <ChatBubbleLeftRightIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                              <p className="text-sm">No messages yet</p>
+                            </div>
+                          ) : (
+                            messages.map((message, index) => (
+                              <div key={message.id} className={`flex ${message.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                                  message.direction === 'outbound'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-900'
+                                }`}>
+                                  <p className="mb-1">{message.content}</p>
+                                  <div className={`text-xs flex items-center justify-between ${
+                                    message.direction === 'outbound' ? 'text-blue-100' : 'text-gray-500'
+                                  }`}>
+                                    <span>
+                                      {format(new Date(message.timestamp), 'MMM d, h:mm a')}
+                                    </span>
+                                    <span className="ml-2 capitalize">
+                                      {message.message_type === 'checkin_response' ? 'patient' :
+                                       message.message_type === 'auto_reply' ? 'auto' :
+                                       message.message_type === 'staff_reply' ? 'staff' :
+                                       message.message_type}
+                                    </span>
+                                  </div>
+                                  {message.metadata && (message.metadata.pain_score !== undefined || message.metadata.bleeding !== undefined) && (
+                                    <div className={`text-xs mt-1 pt-1 border-t ${
+                                      message.direction === 'outbound' ? 'border-blue-500' : 'border-gray-300'
+                                    }`}>
+                                      {message.metadata.pain_score !== undefined && (
+                                        <span className="mr-3">Pain: {message.metadata.pain_score}/10</span>
+                                      )}
+                                      {message.metadata.bleeding !== undefined && (
+                                        <span>Bleeding: {message.metadata.bleeding ? 'Yes' : 'No'}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Message Input */}
+                        <div className="border-t border-gray-200 px-6 py-4">
+                          <div className="flex space-x-3">
+                            <input
+                              type="text"
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                              placeholder="Send a message to patient..."
+                              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                              disabled={sendingMessage}
+                            />
+                            <button
+                              onClick={handleSendMessage}
+                              disabled={!newMessage.trim() || sendingMessage}
+                              className="btn-primary px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {sendingMessage ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <PaperAirplaneIcon className="h-4 w-4" />
+                              )}
+                            </button>
                           </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Message will be sent via SMS to {patient.first_name}
+                          </p>
                         </div>
                       </div>
                     </div>

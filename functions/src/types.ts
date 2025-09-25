@@ -45,6 +45,49 @@ export interface StaffAction {
   note?: string;
 }
 
+export interface Conversation {
+  id: string;
+  patient_id: string;
+  thread_sid?: string; // Twilio conversation thread ID
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message_at: string;
+  status: 'active' | 'resolved' | 'escalated';
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  patient_id: string; // Denormalized for easier querying
+  direction: 'inbound' | 'outbound';
+  content: string;
+  message_sid: string;
+  timestamp: string;
+  message_type: 'daily_checkin' | 'checkin_response' | 'auto_reply' | 'staff_reply' | 'followup' | 'escalation';
+  metadata?: {
+    pain_score?: number;
+    bleeding?: boolean;
+    triage_level?: number;
+    staff_user_id?: string;
+    response_id?: string; // Link to Response document
+    checkin_day?: number;
+  };
+  processed: boolean; // Whether this message has been analyzed for triage
+}
+
+export interface RiskScore {
+  overall_score: number; // 0-100 composite risk score
+  pain_risk: number;
+  bleeding_risk: number;
+  infection_risk: number;
+  complications_risk: number;
+  trend_risk: number; // Based on progression over time
+  flags: string[];
+  confidence: number; // 0-1, how confident we are in the scoring
+  computed_at: string;
+}
+
 export interface TwilioSMSWebhookBody {
   MessageSid: string;
   AccountSid: string;

@@ -56,6 +56,37 @@ export interface StaffAction {
   note?: string;
 }
 
+export interface Message {
+  id: string;
+  conversation_id: string;
+  patient_id: string;
+  direction: 'inbound' | 'outbound';
+  content: string;
+  message_sid: string;
+  timestamp: string;
+  message_type: 'daily_checkin' | 'checkin_response' | 'auto_reply' | 'staff_reply' | 'followup' | 'escalation';
+  metadata?: {
+    pain_score?: number;
+    bleeding?: boolean;
+    triage_level?: number;
+    staff_user_id?: string;
+    response_id?: string;
+    checkin_day?: number;
+  };
+  processed: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  patient_id: string;
+  thread_sid?: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message_at: string;
+  status: 'active' | 'resolved' | 'escalated';
+}
+
 export interface AuditEvent {
   id: string;
   actor: string; // 'system' or user_id

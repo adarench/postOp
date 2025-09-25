@@ -36,7 +36,7 @@ export interface SendSMSParams {
   message: string;
 }
 
-export async function sendSMS({ to, message }: SendSMSParams): Promise<string> {
+export async function sendSMS({ to, message }: SendSMSParams): Promise<{ messageSid: string }> {
   try {
     const client = getTwilioClient();
     const phoneNumber = functions.config().twilio?.phone_number;
@@ -58,7 +58,7 @@ export async function sendSMS({ to, message }: SendSMSParams): Promise<string> {
     const redacted = redactForLogs(to, message);
     console.log(`SMS sent to ${redacted.phone}: ${redacted.body} (SID: ${result.sid})`);
 
-    return result.sid;
+    return { messageSid: result.sid };
   } catch (error) {
     const redacted = redactForLogs(to, message);
     console.error(`Failed to send SMS to ${redacted.phone}:`, error);
